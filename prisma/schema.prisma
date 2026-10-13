@@ -1,0 +1,148 @@
+// Prisma ORM 7 schema. Connection URLs live in prisma.config.ts (CLI) and
+// src/lib/prisma.ts (runtime driver adapter), not in this file.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  RECEPTIONIST
+}
+
+enum PatientType {
+  NEW
+  OLD
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  MIXED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  ARCHIVE
+  RESTORE
+}
+
+model User {
+  id                 String   @id @default(uuid()) @db.Uuid
+  /// Stored lower-cased and trimmed.
+  email              String   @unique @db.VarChar(254)
+  name               String   @db.VarChar(100)
+  passwordHash       String   @map("password_hash")
+  role               Role
+  isActive           Boolean  @default(true) @map("is_active")
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions             Session[]
+  createdAppointments  Appointment[] @relation("AppointmentCreatedBy")
+  updatedAppointments  Appointment[] @relation("AppointmentUpdatedBy")
+  archivedAppointments Appointment[] @relation("AppointmentArchivedBy")
+  auditEvents          AuditEvent[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  /// SHA-256 hex digest of the opaque cookie token. The raw token is never stored.
+  tokenHash  String   @unique @map("token_hash") @db.Char(64)
+  userId     String   @map("user_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Appointment {
+  id            String         @id @default(uuid()) @db.Uuid
+  /// Spreadsheet "Number". Database-generated; gaps are acceptable.
+  recordNumber  Int            @unique @default(autoincrement()) @map("record_number")
+  clinicNumber  String         @map("clinic_number") @db.VarChar(20)
+  /// Client-generated idempotency key for the create attempt.
+  submissionKey String         @unique @map("submission_key") @db.Uuid
+  /// Spreadsheet "New/Old".
+  patientType   PatientType    @map("patient_type")
+  /// Spreadsheet "C-S". Meaning intentionally not interpreted.
+  cs            String?        @map("c_s") @db.VarChar(50)
+  team          String         @db.VarChar(100)
+  /// Normalised: optional leading "+", digits only.
+  mobileNo      String         @map("mobile_no") @db.VarChar(20)
+  patientName   String         @map("patient_name") @db.VarChar(150)
+  location      String?        @db.VarChar(150)
+  appointmentAt DateTime       @map("appointment_at") @db.Timestamptz(3)
+  procedure     String         @db.VarChar(200)
+  amount        Decimal?       @db.Decimal(12, 2)
+  resultIssued  String?        @map("result_issued") @db.VarChar(100)
+  cost          Decimal?       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod? @map("payment_method")
+  cashAmount    Decimal?       @map("cash_amount") @db.Decimal(12, 2)
+  cardAmount    Decimal?       @map("card_amount") @db.Decimal(12, 2)
+  status        String?        @db.VarChar(50)
+  approvalCode  String?        @map("approval_code") @db.VarChar(50)
+
+  createdById  String    @map("created_by_id") @db.Uuid
+  updatedById  String    @map("updated_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version      Int       @default(1)
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
+  archivedById String?   @map("archived_by_id") @db.Uuid
+
+  createdBy   User         @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  updatedBy   User         @relation("AppointmentUpdatedBy", fields: [updatedById], references: [id])
+  archivedBy  User?        @relation("AppointmentArchivedBy", fields: [archivedById], references: [id])
+  auditEvents AuditEvent[]
+
+  /// Main list/report access path: active (or archived) records within a time range.
+  @@index([archivedAt, appointmentAt])
+  /// Report grouping by receptionist and FK lookups.
+  @@index([createdById])
+  /// Most common exact filter and report grouping.
+  @@index([team])
+  @@map("appointments")
+}
+
+model ClinicNumber {
+  id        String   @id @default(uuid()) @db.Uuid
+  number    String   @unique @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("clinic_numbers")
+}
+
+model AuditEvent {
+  id            String      @id @default(uuid()) @db.Uuid
+  appointmentId String      @map("appointment_id") @db.Uuid
+  actorId       String      @map("actor_id") @db.Uuid
+  action        AuditAction
+  /// CREATE: { field: { to } }. UPDATE: { field: { from, to } }. ARCHIVE/RESTORE: {}.
+  changes       Json
+  /// Record version after this change.
+  version       Int
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  actor       User        @relation(fields: [actorId], references: [id])
+
+  @@index([appointmentId, createdAt])
+  @@map("audit_events")
+}
