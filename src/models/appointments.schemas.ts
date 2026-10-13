@@ -72,6 +72,13 @@ const validatePaymentBreakdown = (
   const cash = Number(value.cashAmount ?? 0);
   const card = Number(value.cardAmount ?? 0);
   const total = value.amount == null ? null : Number(value.amount);
+  if (value.paymentMethod && total === null) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["amount"],
+      message: "Amount is required when a payment method is selected.",
+    });
+  }
   if (value.paymentMethod === "MIXED" && (!(cash > 0) || !(card > 0))) {
     ctx.addIssue({
       code: "custom",

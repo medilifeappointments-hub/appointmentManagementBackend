@@ -14,6 +14,8 @@ export interface RecordedTotals {
   costEntries: number;
   recordedCash: string;
   recordedCard: string;
+  recordedCollected: string;
+  recordedOutstanding: string;
 }
 
 export interface SummaryReport {
@@ -46,6 +48,9 @@ interface GroupAggregate {
 function toTotals(group: GroupAggregate): RecordedTotals {
   const amount = group._sum.amount ?? new Prisma.Decimal(0);
   const cost = group._sum.cost ?? new Prisma.Decimal(0);
+  const cash = group._sum.cashAmount ?? new Prisma.Decimal(0);
+  const card = group._sum.cardAmount ?? new Prisma.Decimal(0);
+  const collected = cash.plus(card);
   return {
     records: group._count._all,
     recordedAmount: sumToString(amount),
@@ -53,8 +58,10 @@ function toTotals(group: GroupAggregate): RecordedTotals {
     recordedNet: amount.minus(cost).toFixed(2),
     amountEntries: group._count.amount,
     costEntries: group._count.cost,
-    recordedCash: sumToString(group._sum.cashAmount),
-    recordedCard: sumToString(group._sum.cardAmount),
+    recordedCash: cash.toFixed(2),
+    recordedCard: card.toFixed(2),
+    recordedCollected: collected.toFixed(2),
+    recordedOutstanding: amount.minus(collected).toFixed(2),
   };
 }
 

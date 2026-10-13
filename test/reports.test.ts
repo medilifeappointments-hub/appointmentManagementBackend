@@ -43,6 +43,8 @@ describe("admin summary report", () => {
       costEntries: 2,
       recordedCash: "0.00",
       recordedCard: "0.00",
+      recordedCollected: "0.00",
+      recordedOutstanding: "0.30",
     });
     expect(report.byReceptionist).toEqual([
       {
@@ -56,6 +58,8 @@ describe("admin summary report", () => {
         costEntries: 1,
         recordedCash: "0.00",
         recordedCard: "0.00",
+        recordedCollected: "0.00",
+        recordedOutstanding: "0.30",
       },
       expect.objectContaining({
         name: "Omar",
@@ -103,11 +107,15 @@ describe("admin summary report", () => {
 
     const res = await admin.get("/api/v1/admin/reports/summary?from=2026-10-12&to=2026-10-12");
     expect(res.body.data.totals).toEqual(
-      expect.objectContaining({ recordedAmount: "100.00", recordedCash: "40.00", recordedCard: "60.00" }),
+      expect.objectContaining({
+        recordedAmount: "100.00",
+        recordedCash: "40.00",
+        recordedCard: "60.00",
+        recordedCollected: "100.00",
+        recordedOutstanding: "0.00",
+      }),
     );
-    expect(res.body.data.byPaymentMethod).toEqual([
-      expect.objectContaining({ paymentMethod: "MIXED", records: 1 }),
-    ]);
+    expect(res.body.data.byPaymentMethod).toEqual([expect.objectContaining({ paymentMethod: "MIXED", records: 1 })]);
   });
 
   it("requires a valid date range", async () => {
