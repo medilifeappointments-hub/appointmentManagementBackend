@@ -1,12 +1,12 @@
-import { Prisma } from "../../generated/prisma/client.js";
+import { Prisma, type Role } from "../../generated/prisma/client.js";
 import { getPrisma } from "../prisma.js";
 
 export const findAll = () =>
   getPrisma().user.findMany({ orderBy: [{ role: "asc" }, { isActive: "desc" }, { name: "asc" }] });
 
-export const createReceptionist = (name: string, email: string, passwordHash: string) =>
+export const createUser = (name: string, email: string, passwordHash: string, role: Role) =>
   getPrisma().user.create({
-    data: { name, email, passwordHash, role: "RECEPTIONIST", mustChangePassword: true },
+    data: { name, email, passwordHash, role, mustChangePassword: true },
   });
 
 export const runSerializable = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>) =>

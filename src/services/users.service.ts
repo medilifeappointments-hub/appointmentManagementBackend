@@ -3,7 +3,7 @@ import { ApiError } from "../utils/errors.js";
 import { hashPassword } from "../utils/password.js";
 import type { AuthContext } from "../models/auth.types.js";
 import { revokeUserSessions } from "./session.service.js";
-import type { CreateReceptionistInput } from "../models/users.schemas.js";
+import type { CreateUserInput } from "../models/users.schemas.js";
 import * as repository from "../db/repositories/users.repository.js";
 
 export interface UserDto {
@@ -33,11 +33,11 @@ export async function listUsers(): Promise<UserDto[]> {
   return users.map(toUserDto);
 }
 
-/** Creates a receptionist who must change the temporary password at first sign-in. */
-export async function createReceptionist(input: CreateReceptionistInput): Promise<UserDto> {
+/** Creates a staff account that must change its temporary password at first sign-in. */
+export async function createUser(input: CreateUserInput): Promise<UserDto> {
   const passwordHash = await hashPassword(input.temporaryPassword);
   try {
-    const user = await repository.createReceptionist(input.name, input.email, passwordHash);
+    const user = await repository.createUser(input.name, input.email, passwordHash, input.role);
     return toUserDto(user);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

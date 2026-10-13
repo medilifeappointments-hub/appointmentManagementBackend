@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { emailSchema, newPasswordSchema, requiredText } from "../utils/validation.js";
 
-export const createReceptionistSchema = z.strictObject({
+export const createUserSchema = z.strictObject({
   name: requiredText(100, "Name"),
   email: emailSchema,
   temporaryPassword: newPasswordSchema,
+  role: z
+    .enum(["RECEPTIONIST", "SUPER_ADMIN"], { error: "Role must be Receptionist or Super Admin." })
+    .default("RECEPTIONIST"),
 });
 
 export const setUserStatusSchema = z.strictObject({
@@ -15,4 +18,4 @@ export const resetPasswordSchema = z.strictObject({
   temporaryPassword: newPasswordSchema,
 });
 
-export type CreateReceptionistInput = z.infer<typeof createReceptionistSchema>;
+export type CreateUserInput = z.infer<typeof createUserSchema>;

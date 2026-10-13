@@ -178,6 +178,23 @@ describe("user management", () => {
     expect((await sara.get("/api/v1/appointments")).status).toBe(200);
   });
 
+  it("allows a super admin to create another super admin", async () => {
+    const { client: admin } = await createAndLogin({ role: "SUPER_ADMIN" });
+    const created = await admin.post("/api/v1/admin/users", {
+      name: "Second Admin",
+      email: "second-admin@clinic.test",
+      temporaryPassword: "temporary-pass-1",
+      role: "SUPER_ADMIN",
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      email: "second-admin@clinic.test",
+      role: "SUPER_ADMIN",
+      mustChangePassword: true,
+    });
+  });
+
   it("rejects duplicate emails", async () => {
     const { client: admin } = await createAndLogin({ role: "SUPER_ADMIN" });
     await createUser({ email: "dup@clinic.test" });
